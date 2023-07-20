@@ -6,22 +6,24 @@
 # Student: Yu Yin, Lee, 1008421968, leeyu23, felixyy.lee@mail.utoronto.ca
 #
 # Bitmap Display Configuration:
-# - Unit width in pixels: 8 (update this as needed)
-# - Unit height in pixels: 8 (update this as needed)
+# - Unit width in pixels: 4 (update this as needed)
+# - Unit height in pixels: 4 (update this as needed)
 # - Display width in pixels: 256 (update this as needed)
 # - Display height in pixels: 256 (update this as needed)
 # - Base Address for Display: 0x10008000 ($gp)
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3 (choose the one the applies)
+# - Milestone 3
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)
-# 2. (fill in the feature, if any)
-# 3. (fill in the feature, if any)
-# ... (add more if necessary)
+# 1. Score 		(2 marks)
+# 2. Fail condition 	(1 marks)
+# 3. Win Condition 	(1 marks)
+# 4. Moving Object 	(2 marks)
+# 5. Moving Platform 	(2 marks)
+# 6. Pick-up Effect	(2 marks)
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
