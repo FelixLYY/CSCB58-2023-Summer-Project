@@ -1,0 +1,92 @@
+##### Process #####
+Initialize
+main
+Gravity
+CheckJump
+
+##### Initial Position #####
+InitialCharacter
+InitialMushroom
+InitialPotion
+InitialValue
+
+##### Clear #####
+ClearScreen
+    LoopClearScreen
+ClearCharacter
+ClearYellowMushroom
+ClearPotion
+ClearValue
+
+	
+##### Calculate #####
+CalculateCharacterPos
+CalculateMushroomPos
+CalculatePotionPos
+    Calculate
+CalculatePivot
+CalculateHead
+
+##### Show Object #####
+CreatePlatform1
+CreatePlatform2
+CreatePlatform3
+CreatePlatform4
+CreatePlatform5
+    InitPlat
+Sea
+    LoopSea
+Exit
+    CreateExitDoor
+DisplayScore
+DisplayValue
+YellowMushroom
+    CreateMushroom
+BluePotion
+    CreatePotion
+DisplayCharacter
+OriginalCharacter
+YellowCharacter
+    CreateCharacter
+
+
+
+Win
+ClickRestart
+##### Show Character #####
+DisplayA
+DisplayC
+DisplayE
+DisplayI
+DisplayL
+DisplayN
+DisplayO
+DisplayP
+DisplayR
+DisplayS
+DisplayT
+DisplayU
+DisplayW
+DisplayY
+
+Display0
+Display1
+Display2
+
+DisplayColon
+
+##### Keyboard Input #####
+FetchInput
+    Keypress_happened
+	MoveLeft	
+        Minus
+	MoveRight
+        Plus	
+	Startover	
+	Jump
+        Fly
+    Up1
+        
+##### Finish #####
+Return
+End

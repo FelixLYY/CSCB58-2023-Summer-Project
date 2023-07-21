@@ -13,20 +13,45 @@
 .eqv Press	0x10008708
 .eqv To		0x10008a30
 .eqv Restart	0x10008cf8
-.eqv Platform1 0x1000a300
-.eqv Platform2 0x10009d50
-.eqv Platform3 0x1000a880
-.eqv Platform4 0x1000a2c0
-.eqv Platform5 0x1000b234
+.eqv Platform1 	0x1000a304
+.eqv Platform2 	0x10009d50
+.eqv Platform3 	0x1000a880
+.eqv Platform4 	0x1000a2c0
+.eqv Platform5 	0x1000b234
 .eqv Bottom	0x1000be00
 .eqv EndPixel	0x1000c000
-.eqv Character 0x1000a210
+.eqv Character 	0x1000a210
 .eqv Mushroom	0x10009c60
 .eqv Potion	0x1000b144
 .eqv ExitDoor	0x1000a1d0
 .eqv Score	0x10008210
-# .eqv Mark	0x10008284
+.eqv Keystroke	0xffff0000
+# Define Width, Height
+.eqv Width		64
+.eqv Height 		64
 
+# Define Initial 
+.eqv Characterx		4
+.eqv Charactery		34
+.eqv Mushroomx		24
+.eqv Mushroomy		28
+.eqv Potionx		17
+.eqv Potiony		49
+.eqv Initialvalue	0
+.eqv PlatformColor	Green
+# Character Attribute
+.eqv CharacterOri	0
+.eqv CharacterWidth	5
+.eqv CharacterHeight	6
+.eqv JumpHeight		20	
+.eqv OriMovingSpeed	1
+.eqv DownSpeed		1
+.eqv UpSpeed		1
+.eqv CharacterBalance	2
+.eqv OriginalEye	Green
+.eqv OriginalBody	Red
+# Sleep time (Refresh rate)
+.eqv Sleep		40
 # Color
 .eqv Red	0xff0000
 .eqv Green	0x00ff00
@@ -34,23 +59,43 @@
 .eqv White	0xffffff
 .eqv Yellow	0xffff00
 .eqv Brown	0x964b00
+# ASCII Value of keyboard input
+.eqv ASCIIa	0x61
+.eqv ASCIId	0x64
+.eqv ASCIIp	0x70
+.eqv ASCIIw	0x77
 
 .data 
-Value: .word	0
+Value: 		.word	InitialValue
+Characterxy: 	.word 	Characterx, Charactery
+Mushroomxy: 	.word 	Mushroomx, Mushroomy
+Potionxy:	.word	Potionx, Potiony
+CharacterColor:	 .word	CharacterOri
+RemainJumpDist:	 .word	0
+CharacterPivot:	 .word	264
+MovingSpeed:	.word	OriMovingSpeed
+CharacterHeadPivot:	.word	-1532
 
 .text
+.globl Initialize
 
+Initialize:				# Initialize all the value to default
+	jal ClearScreen
+	jal InitialCharacter
+	jal InitialMushroom
+	jal InitialPotion
+	jal InitialValue
+	j main
+	li $t0, Blue
+	li $t1, 0x1a1110
+	sw $t0, 0($t1)
 main:
+	# Calculate the position of object
+	jal CalculateCharacterPos
+	jal CalculateMushroomPos
+	jal CalculatePotionPos
 
-	li $t1, Red # $t1 stores the red colour code
-	li $t2, Green # $t2 stores the green colour code
-	li $t3, Blue # $t3 stores the blue colour code
-	li $s0, Character
-	li $s1, Mushroom
-	li $s2, Potion
-	li $t7, 0
-	sw $t7, Value
-
+	# Display 
 	jal CreatePlatform1
 	jal CreatePlatform2
 	jal CreatePlatform3
@@ -62,29 +107,232 @@ main:
 	
 	jal YellowMushroom
 	jal BluePotion
-	jal OriginalCharacter
+	jal DisplayCharacter
 	
-	li $v0, 32
-	li $a0, 1000 # Wait one second (1000 milliseconds)
-	syscall
+	jal Hibernate
 
 	jal ClearCharacter
-	jal ClearYellowMushroom
-	jal ClearPotion
-	jal ClearValue
-	
-	li $v0, 32
-	li $a0, 1000 # Wait one second (1000 milliseconds)
-	syscall
-	
-	jal ClearScreen
+	jal FetchInput
+	jal Gravity
+	jal CheckJump
+	j main
 	j End
+
+CheckJump:
+	lw $t1, RemainJumpDist
+	beqz $t1, Return
+	subi $t1, $t1, 1		# Now the character is jumping
+	sw $t1, RemainJumpDist		# Update RemainJumpDist
+	la $t0, Characterxy
+	lw $t1, 4($t0)			# Check if is on top or hit any platform
+	subi $t1, $t1, CharacterHeight
+	beqz $t1, Return
+	move $t1, $s0
+	lw $t2, CharacterHeadPivot
+	sub $t1, $t1, $t2
+	lw $t2, 0($t1)
+	beq $t2, PlatformColor, Return
+	j Up
+
+Up:					# Go up by 1 pixel if does not hit anything
+	lw $t1, 4($t0)
+	subi $t1, $t1, UpSpeed
+	sw $t1, 4($t0)
+	jr $ra
+					
+
+Gravity:				# Check if character fall
+	lw $t0, RemainJumpDist
+	bnez $t0, Return		# Don't fall if still jumping
+	la $t0, Characterxy		# Load Characterxy to do calculation
+	lw $t2, CharacterPivot
+	add $t2, $s0, $t2		
+	lw $t2, 0($t2)			# Check the pixel just under the character balance pivot
+	bne $t2, PlatformColor, Down
+	jr $ra
+
+Down:					# Suppose t0 store xy coordinate
+	lw $t1, 4($t0)			# Get y coordinate
+	addi $t1, $t1, DownSpeed
+	sw $t1, 4($t0)
+	jr $ra
+	
+FetchInput:				# Check if user input char
+	li $t9, Keystroke
+	lw $t8, 0($t9)
+	beq $t8, 1, Keypress_happened
+	jr $ra				# No Input, exit
+
+Keypress_happened:			# Have keyboard input, check which char is it
+	lw $t2, 4($t9)
+	beq $t2, ASCIIa, MoveLeft	# Input is a, move left
+	beq $t2, ASCIId, MoveRight	# Input is d, move right
+	beq $t2, ASCIIp, Startover	# Input is p, restart the game
+	beq $t2, ASCIIw, Jump		# input is w, jump up
+	jr $ra				# No the char we want, exit
+
+MoveLeft:				# Move left if not on leftmost
+	la $t0, Characterxy
+	lw $t1, 0($t0)
+	lw $t2, MovingSpeed
+	sub $t1, $t1, $t2
+	bgt $t1, 0, Left
+	jr $ra
+
+Left:					# Go left by 1 if greater than 0
+	lw $t1, 0($t0)
+	lw $t2, MovingSpeed
+	sub $t1, $t1, $t2
+	sw $t1, 0($t0)
+	jr $ra
+
+MoveRight:				# Move right if no on rightmost
+	la $t0, Characterxy
+	lw $t1, 0($t0)
+	li $t2, Width
+	sub $t2, $t2, CharacterWidth	# Get max width including width of character
+	lw $t3, MovingSpeed
+	add $t1, $t1, $t3
+	blt $t1, $t2, Right 
+	jr $ra
+
+Right:					# Plus 1 if less than Width
+	lw $t1, 0($t0)
+	lw $t2, MovingSpeed
+	add $t1, $t1, $t2
+	sw $t1, 0($t0)
+	jr $ra
+
+Startover:
+	j Initialize
+
+Jump:
+	lw $t1, RemainJumpDist
+	bnez $t1, Return		# Return if you still have jump distance
+	lw $t2, CharacterPivot
+	add $t2, $s0, $t2		
+	lw $t2, 0($t2)			# Check the pixel just under the character balance pivot
+	beq $t2, PlatformColor, Fly
+
+	jr $ra
+
+Fly:					# Give jump distance
+	li $t0, JumpHeight
+	sw $t0, RemainJumpDist
+	jr $ra
+
+Hibernate:				# Sleep by a given time
+	li $v0, 32
+	li $a0, Sleep 
+	syscall
+	jr $ra
+
+InitialCharacter:
+	la $t0, Characterxy
+	li $t1, Characterx
+	sw $t1, 0($t0)
+	li $t1, Charactery
+	sw $t1, 4($t0)
+	li $t1, CharacterOri
+	sw $t1, CharacterColor
+	sw $zero, RemainJumpDist	# Reset to no jump
+	li $t1, OriMovingSpeed
+	sw $t1, MovingSpeed
+	j CalculateBalance
+
+CalculateBalance:			# Calculate where to check to see if character fall
+	li $t1, Width			# The point to check is (Width + CharacterMiddle) * 4
+	addi $t1, $t1, CharacterBalance
+	addi $t2, $zero, 4
+	mult $t1, $t2
+	mflo $t1
+	sw $t1, CharacterPivot
+	j CalculateHead
+
+CalculateHead:
+	li $t1, Width		# The point to check is (Width * CharacterHeight - CharacterMiddle) * 4
+	addi $t2, $zero, CharacterHeight
+	mult $t1, $t2
+	mflo $t1
+	subi $t1, $t1, CharacterBalance
+	addi $t2, $zero, 4
+	mult $t1, $t2
+	mflo $t1
+	sw $t1, CharacterHeadPivot
+	jr $ra
+	
+InitialMushroom:
+	la $t0, Mushroomxy
+	li $t1, Mushroomx
+	sw $t1, 0($t0)
+	li $t1, Mushroomy
+	sw $t1, 4($t0)
+	jr $ra
+
+InitialPotion:
+	la $t0, Potionxy
+	li $t1, Potionx
+	sw $t1, 0($t0)
+	li $t1, Potiony
+	sw $t1, 4($t0)
+	jr $ra
+
+InitialValue:
+	li $t0, Initialvalue
+	sw $t0, Value
+	jr $ra
+
+CalculatePotionPos:			# Calculate the position of the Potion, Base_Address + (x+y*64)*4
+	la $t0, Potionxy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s2, $t0
+	jr $ra
+
+CalculateMushroomPos:			# Calculate the position of the Mushroom, Base_Address + (x+y*64)*4
+	la $t0, Mushroomxy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s1, $t0
+	jr $ra
+
+CalculateCharacterPos:			# Calculate the position of the character, Base_Address + (x+y*64)*4
+	la $t0, Characterxy		# Only this function can modify $s0
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s0, $t0
+	jr $ra
+	
+Calculate:				# Calculate based on t0 = xy of thing
+	lw $t1, 0($t0)			# x
+	lw $t2, 4($t0)			# y
+	li $t3, Width
+	mult $t3, $t2
+	mflo $t2
+	add $t0, $t2, $t1
+	addi $t1, $zero, 4
+	mult $t1, $t0
+	mflo $t0
+	addi $t0, $t0, BASE_ADDRESS
+
+	jr $ra
+	
 
 ClearScreen:
 	li $t0, BASE_ADDRESS
 	add $t3, $zero, $zero
 	la $t4, EndPixel
 	j LoopClearScreen
+	
 LoopClearScreen:
 	sw $t3, 0($t0)
 	addi $t0, $t0, 4
@@ -284,20 +532,31 @@ Display2:
 	sw $t2, 1296($t0)
 	
 	jr $ra
-
-OriginalCharacter:
-	li $t1, Red # $t1 stores the red colour code
-	li $t2, Green # $t2 stores the green colour code
+	
+DisplayCharacter:		# Check to display original or yellow character
+	lw $t0, CharacterColor
+	bne $t0, CharacterOri, YellowCharacter
+	j OriginalCharacter
+	
+OriginalCharacter:		# Display Original Character
+	li $t1, OriginalBody 
+	li $t2, OriginalEye
 
 	j CreateCharacter
 
-Exit:
+YellowCharacter:		# Display Yellow Character
+	li $t1, Yellow 
+	li $t2, Red 
+
+	j CreateCharacter
+
+Exit:				# Display Exit Door
 	li $t0, ExitDoor
 	li $t1, White
 	li $t2, Brown
 	j CreateExitDoor
 
-CreateExitDoor:
+CreateExitDoor:			# Display Door
 	sw $t2, 0($t0)
 	sw $t2, 4($t0)
 	sw $t2, 8($t0)
@@ -352,38 +611,39 @@ BluePotion:
 	
 CreatePlatform1:
 	li $t0, Platform1
-	li $t2, Green
+	li $t2, PlatformColor
 
 	j InitPlat
 
 	
 CreatePlatform2:
 	li $t0, Platform2
-	li $t2, Green
+	li $t2, PlatformColor
 
 	j InitPlat
 
 CreatePlatform3:
 	li $t0, Platform3
-	li $t2, Green
+	li $t2, PlatformColor
 
 	j InitPlat
 
 CreatePlatform4:
 	li $t0, Platform4
-	li $t2, Green
+	li $t2, PlatformColor
 
 	j InitPlat
 
 
 CreatePlatform5:
 	li $t0, Platform5
-	li $t2, Green
+	li $t2, PlatformColor
 
 	j InitPlat
 
 	
 InitPlat:
+	sw $t2, -4($t0)
 	sw $t2, 0($t0)
 	sw $t2, 4($t0)
 	sw $t2, 8($t0)
@@ -473,6 +733,10 @@ CreatePotion:
 	sw $t2, -1016($s2)
 	sw $t2, -1032($s2)
 	jr $ra
+	
+Return:
+	jr $ra
+	
 End:
 	li $v0, 10
 	syscall

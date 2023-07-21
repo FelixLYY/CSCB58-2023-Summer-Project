@@ -1,6 +1,6 @@
 #####################################################################
 #
-# CSCB58 Winter 2022 Assembly Final Project
+# CSCB58 Summer 2023 Assembly Final Project
 # University of Toronto, Scarborough
 #
 # Student: Yu Yin, Lee, 1008421968, leeyu23, felixyy.lee@mail.utoronto.ca
