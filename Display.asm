@@ -25,7 +25,7 @@
 .eqv Potion	0x1000b144
 .eqv ExitDoor	0x1000a1d0
 .eqv Score	0x10008210
-# .eqv Mark	0x10008284
+.eqv Mark	0x10008284
 
 # Color
 .eqv Red	0xff0000

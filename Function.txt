@@ -3,7 +3,8 @@ Initialize
 main
 Gravity
 CheckJump
-
+CheckHitMushroom
+CheckHitPotion
 ##### Initial Position #####
 InitialCharacter
 InitialMushroom
@@ -26,7 +27,17 @@ CalculatePotionPos
     Calculate
 CalculatePivot
 CalculateHead
+CheckInterval
+CheckLowestx
+CheckLowestx2
+CheckHighestx
+CheckHighestx2
+Collided
+NotCollide
+PushStack
+MushCollideHapp
 
+PotionCollideHapp
 ##### Show Object #####
 CreatePlatform1
 CreatePlatform2

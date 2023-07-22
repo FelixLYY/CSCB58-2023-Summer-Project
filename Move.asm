@@ -26,10 +26,11 @@
 .eqv ExitDoor	0x1000a1d0
 .eqv Score	0x10008210
 .eqv Keystroke	0xffff0000
-# Define Width, Height
+.eqv Mark	0x10008294
+# Define Standard
 .eqv Width		64
 .eqv Height 		64
-
+.eqv No			0
 # Define Initial 
 .eqv Characterx		4
 .eqv Charactery		34
@@ -50,6 +51,11 @@
 .eqv CharacterBalance	2
 .eqv OriginalEye	Green
 .eqv OriginalBody	Red
+
+# Object Attribute
+.eqv MushroomRadius	1
+.eqv PotionRadius	1
+.eqv PotionEffect	2
 # Sleep time (Refresh rate)
 .eqv Sleep		40
 # Color
@@ -66,15 +72,17 @@
 .eqv ASCIIw	0x77
 
 .data 
-Value: 		.word	InitialValue
-Characterxy: 	.word 	Characterx, Charactery
-Mushroomxy: 	.word 	Mushroomx, Mushroomy
-Potionxy:	.word	Potionx, Potiony
-CharacterColor:	 .word	CharacterOri
-RemainJumpDist:	 .word	0
-CharacterPivot:	 .word	264
-MovingSpeed:	.word	OriMovingSpeed
+Value: 			.word	InitialValue
+Characterxy: 		.word 	Characterx, Charactery
+Mushroomxy: 		.word 	Mushroomx, Mushroomy
+Potionxy:		.word	Potionx, Potiony
+CharacterColor:	 	.word	CharacterOri
+RemainJumpDist:	 	.word	0
+CharacterPivot:	 	.word	264
+MovingSpeed:		.word	OriMovingSpeed
 CharacterHeadPivot:	.word	-1532
+MushroomCollided:	.word	No
+PotionCollided:		.word 	No
 
 .text
 .globl Initialize
@@ -86,9 +94,7 @@ Initialize:				# Initialize all the value to default
 	jal InitialPotion
 	jal InitialValue
 	j main
-	li $t0, Blue
-	li $t1, 0x1a1110
-	sw $t0, 0($t1)
+
 main:
 	# Calculate the position of object
 	jal CalculateCharacterPos
@@ -115,8 +121,148 @@ main:
 	jal FetchInput
 	jal Gravity
 	jal CheckJump
+	jal CheckHitMushroom
+	jal CheckHitPotion
 	j main
 	j End
+
+CheckHitPotion:				# Check if character overlap mushroom
+	lw $t1, PotionCollided
+	bne $t1, No, Return		# Already Collided
+	la $t0, Potionxy
+	la $t1, Characterxy
+	lw $t2, 4($t0)
+	lw $t3, 4($t1)
+	bne $t2, $t3, Return		# Check if it is on same horizontal level
+	lw $t2, 0($t0)			
+	addi $t3, $t2, PotionRadius
+	subi $t2, $t2, PotionRadius	# interval of Mushroom size 
+	lw $t4, 0($t1)
+	addi $t5, $t4, CharacterWidth	# interval of Character size
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	addi $sp, $sp, -4
+	sw $t2, 0($sp)
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)			# Push Mushroom size
+	addi $sp, $sp, -4
+	sw $t4, 0($sp)
+	addi $sp, $sp, -4
+	sw $t5, 0($sp)			# Push Character size
+	jal CheckInterval
+	jal PotionCollideHapp
+	lw $ra, 0($sp)			# Take back correct ra
+	addi $sp, $sp, 4
+	bne $t0, No, PotionCollideHapp
+	jr $ra
+
+PotionCollideHapp:
+	lw $t0, 0($sp)			# Pop the collide flag from stack
+	addi $sp, $sp, 4
+	beq $t0, No, Return
+	sw $t0, PotionCollided		# It collide
+	lw $t1, Value
+	addi $t1, $t1, 1
+	sw $t1, Value
+	lw $t1, MovingSpeed
+	addi $t1, $t1, PotionEffect
+	sw $t1, MovingSpeed
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearValue
+	jal ClearPotion
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+
+CheckHitMushroom:			# Check if character overlap mushroom
+	lw $t1, MushroomCollided
+	bne $t1, No, Return		# Already Collided
+	la $t0, Mushroomxy
+	la $t1, Characterxy
+	lw $t2, 4($t0)
+	lw $t3, 4($t1)
+	bne $t2, $t3, Return		# Check if it is on same horizontal level
+	lw $t2, 0($t0)			
+	addi $t3, $t2, MushroomRadius
+	subi $t2, $t2, MushroomRadius	# interval of Mushroom size 
+	lw $t4, 0($t1)
+	addi $t5, $t4, CharacterWidth	# interval of Character size
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	addi $sp, $sp, -4
+	sw $t2, 0($sp)
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)			# Push Mushroom size
+	addi $sp, $sp, -4
+	sw $t4, 0($sp)
+	addi $sp, $sp, -4
+	sw $t5, 0($sp)			# Push Character size
+	jal CheckInterval
+	jal MushCollideHapp
+	lw $ra, 0($sp)			# Take back correct ra
+	addi $sp, $sp, 4
+	jr $ra
+
+MushCollideHapp:
+	lw $t0, 0($sp)			# Pop the collide flag from stack
+	addi $sp, $sp, 4
+	beq $t0, No, Return		
+	sw $t0, MushroomCollided	# It Collide
+	lw $t1, Value
+	addi $t1, $t1, 1
+	sw $t1, Value
+	lw $t1, CharacterColor
+	addi $t1, $t1, 1
+	sw $t1, CharacterColor
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal ClearValue
+	jal ClearYellowMushroom
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+
+CheckInterval:
+	lw $t0, 0($sp)			# Greatest character x
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)			# Least character x
+	addi $sp, $sp, 4
+	lw $t2, 0($sp)			# Greatest object x
+	addi $sp, $sp, 4
+	lw $t3, 0($sp)			# Least object x
+	addi $sp, $sp, 4
+	j CheckLowestx
+	jr $ra
+
+CheckLowestx:
+	bge $t3, $t1, CheckLowestx2	
+	j CheckHighestx
+
+CheckLowestx2:
+	ble $t3, $t0, Collided
+	j CheckHighestx
+	
+CheckHighestx:
+	bge $t2, $t1, CheckHighestx2
+	j NotCollided
+	
+CheckHighestx2:
+	ble $t2, $t0, Collided
+	j NotCollided
+	
+Collided:
+	li $t0, 1
+	j PushStack
+
+NotCollided:
+	add $t0, $zero, $zero
+	j PushStack
+	
+PushStack:
+	addi $sp, $sp, -4
+	sw $t0, 0($sp)
+	j Return
 
 CheckJump:
 	lw $t1, RemainJumpDist
@@ -267,6 +413,8 @@ InitialMushroom:
 	sw $t1, 0($t0)
 	li $t1, Mushroomy
 	sw $t1, 4($t0)
+	li $t1, No
+	sw $t1, MushroomCollided
 	jr $ra
 
 InitialPotion:
@@ -275,6 +423,8 @@ InitialPotion:
 	sw $t1, 0($t0)
 	li $t1, Potiony
 	sw $t1, 4($t0)
+	li $t1, No
+	sw $t1, PotionCollided
 	jr $ra
 
 InitialValue:
@@ -340,7 +490,9 @@ LoopClearScreen:
 	jr $ra
 
 ClearValue:
+	li $t0, Mark
 	lw $t3, Value 
+	subi $t3, $t3, 1
 	li $t4, 1
 	add $t2, $zero, $zero
 	beqz $t3, Display0	# Score = 0
@@ -381,7 +533,8 @@ DisplayScore:			# Display Score
 	jal DisplayE
 	addi $t0, $t0, 24
 	jal DisplayColon
-	addi $t0, $t0, 24
+	
+	li $t0, Mark
 	jal DisplayValue
 	
 	lw $ra, 0($sp)
@@ -600,11 +753,15 @@ CreateExitDoor:			# Display Door
 	jr $ra
 
 YellowMushroom:
+	lw $t0, MushroomCollided
+	bne $t0, No, Return
 	li $t2, Yellow
 	li $t1, Red
 	j CreateMushroom
 
 BluePotion:
+	lw $t0, PotionCollided
+	bne $t0, No, Return
 	li $t2, White
 	li $t1, Blue
 	j CreatePotion
@@ -697,21 +854,21 @@ LoopSea:
 	jr $ra
 
 CreateMushroom:
+	sw $t2, -4($s1)
 	sw $t2, 0($s1)
 	sw $t2, 4($s1)
-	sw $t2, 8($s1)
+	sw $t2, -260($s1)
 	sw $t2, -256($s1)
 	sw $t2, -252($s1)
-	sw $t2, -248($s1)
+	sw $t2, -516($s1)
 	sw $t2, -512($s1)
 	sw $t2, -508($s1)
 	sw $t2, -504($s1)
-	sw $t2, -500($s1)
-	sw $t2, -516($s1)
+	sw $t2, -520($s1)
+	sw $t2, -772($s1)
 	sw $t2, -768($s1)
 	sw $t2, -764($s1)
-	sw $t2, -760($s1)
-	sw $t2, -1020($s1)
+	sw $t2, -1024($s1)
 	jr $ra
 
 CreatePotion:
