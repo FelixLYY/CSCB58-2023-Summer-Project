@@ -5,6 +5,8 @@ Gravity
 CheckJump
 CheckHitMushroom
 CheckHitPotion
+MoveMushroom
+MovePotion
 ##### Initial Position #####
 InitialCharacter
 InitialMushroom
@@ -36,6 +38,13 @@ Collided
 NotCollide
 PushStack
 MushCollideHapp
+MovePotion
+PotionLeft
+PotionRight
+ChangeRightDir
+PotionRight
+ChangeLeftDir
+MushroomLeft
 
 PotionCollideHapp
 ##### Show Object #####
@@ -51,13 +60,13 @@ Exit
     CreateExitDoor
 DisplayScore
 DisplayValue
-YellowMushroom
+ColorMushroom
     CreateMushroom
-BluePotion
+ColorPotion
     CreatePotion
 DisplayCharacter
 OriginalCharacter
-YellowCharacter
+TransformCharacter
     CreateCharacter
 
 
@@ -90,14 +99,15 @@ DisplayColon
 FetchInput
     Keypress_happened
 	MoveLeft	
-        Minus
+        LeftSpeed
 	MoveRight
-        Plus	
+        RightSpeed
 	Startover	
 	Jump
         Fly
     Up1
         
 ##### Finish #####
+PopReturn
 Return
 End

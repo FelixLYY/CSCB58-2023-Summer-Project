@@ -31,6 +31,9 @@
 .eqv Width		64
 .eqv Height 		64
 .eqv No			0
+.eqv Yes		1
+.eqv Left 		0
+.eqv Right 		1
 # Define Initial 
 .eqv Characterx		4
 .eqv Charactery		34
@@ -51,11 +54,22 @@
 .eqv CharacterBalance	2
 .eqv OriginalEye	Green
 .eqv OriginalBody	Red
+.eqv TransformBody	Yellow
+.eqv TransformEye	Red
 
 # Object Attribute
 .eqv MushroomRadius	1
+.eqv MushroomMovDist	3
+.eqv MushroomDirection	Left
+.eqv MushroomColor	Yellow
 .eqv PotionRadius	1
 .eqv PotionEffect	2
+.eqv PotionMovDist	3
+.eqv PotionDirection	Left
+.eqv PotionColor	Blue
+.eqv PotionGlassColor 	White
+
+
 # Sleep time (Refresh rate)
 .eqv Sleep		40
 # Color
@@ -74,8 +88,8 @@
 .data 
 Value: 			.word	InitialValue
 Characterxy: 		.word 	Characterx, Charactery
-Mushroomxy: 		.word 	Mushroomx, Mushroomy
-Potionxy:		.word	Potionx, Potiony
+Mushroomxy: 		.word 	Mushroomx, Mushroomy, MushroomDirection
+Potionxy:		.word	Potionx, Potiony, PotionDirection
 CharacterColor:	 	.word	CharacterOri
 RemainJumpDist:	 	.word	0
 CharacterPivot:	 	.word	264
@@ -111,20 +125,68 @@ main:
 	jal Exit
 	jal DisplayScore
 	
-	jal YellowMushroom
-	jal BluePotion
+	jal ColorMushroom
+	jal ColorPotion
 	jal DisplayCharacter
 	
 	jal Hibernate
 
 	jal ClearCharacter
+	jal ClearPotion
+	jal ClearMushroom
 	jal FetchInput
 	jal Gravity
+	jal MovePotion
+	jal MoveMushroom
 	jal CheckJump
 	jal CheckHitMushroom
 	jal CheckHitPotion
 	j main
 	j End
+
+MoveMushroom:
+	la $t0, Mushroomxy
+	lw $t1, 0($t0)			# Get x coordinate of Mushroom
+	lw $t2, 8($t0)			# Get moving direction
+	li $t4, Mushroomx
+	li $t5, MushroomMovDist
+	beq $t2, Left, CheckLeft	# Go Left if move = left
+	j CheckRight			# Go Right if move = right			
+
+CheckLeft:				# Given t0 is xycoord, t1 = x coord, t2 = mov dir
+					# t4 = Original x coord, t5 = Mov Dist
+	subi $t3, $t1, 1		# Next left pos
+	sub $t4, $t4, $t5		# Greatest left
+	sw $t3, 0($t0)
+	beq $t3, $t4, ChangeRightDir	# Reach greatest left, change dir to right
+	j Return			# Does not reach max left, return
+
+CheckRight:				# Given t0 is xycoord, t1 = x coord, t2 = mov dir
+					# t4 = Original x coord, t5 = Mov Dist
+	addi $t3, $t1, 1		# Next right pos
+	add $t4, $t4, $t5		# Greatest right
+	sw $t3, 0($t0)
+	beq $t3, $t4, ChangeLeftDir	# Reach greatest right, change dir to left
+	j Return			# Does not reach max right, return
+
+MovePotion:
+	la $t0, Potionxy
+	lw $t1, 0($t0)			# Get x coordinate of Potion
+	lw $t2, 8($t0)			# Get moving direction
+	li $t4, Potionx
+	li $t5, PotionMovDist
+	beq $t2, Left, CheckLeft	# Go Left if move = left
+	j CheckRight			# Go Right if move = right			
+
+ChangeRightDir:				# Change dir to right, assume t0 hold the xycoordinate
+	li $t1, Right
+	sw $t1, 8($t0)
+	j Return
+
+ChangeLeftDir:				# Change dir to left, assume t0 hold the xycoordinate
+	li $t1, Left
+	sw $t1, 8($t0)
+	j Return
 
 CheckHitPotion:				# Check if character overlap mushroom
 	lw $t1, PotionCollided
@@ -136,7 +198,7 @@ CheckHitPotion:				# Check if character overlap mushroom
 	bne $t2, $t3, Return		# Check if it is on same horizontal level
 	lw $t2, 0($t0)			
 	addi $t3, $t2, PotionRadius
-	subi $t2, $t2, PotionRadius	# interval of Mushroom size 
+	subi $t2, $t2, PotionRadius	# interval of Potion size 
 	lw $t4, 0($t1)
 	addi $t5, $t4, CharacterWidth	# interval of Character size
 	addi $sp, $sp, -4
@@ -144,22 +206,19 @@ CheckHitPotion:				# Check if character overlap mushroom
 	addi $sp, $sp, -4
 	sw $t2, 0($sp)
 	addi $sp, $sp, -4
-	sw $t3, 0($sp)			# Push Mushroom size
+	sw $t3, 0($sp)			# Push Potion size
 	addi $sp, $sp, -4
 	sw $t4, 0($sp)
 	addi $sp, $sp, -4
 	sw $t5, 0($sp)			# Push Character size
 	jal CheckInterval
-	jal PotionCollideHapp
-	lw $ra, 0($sp)			# Take back correct ra
-	addi $sp, $sp, 4
-	bne $t0, No, PotionCollideHapp
-	jr $ra
+	j PotionCollideHapp
+
 
 PotionCollideHapp:
 	lw $t0, 0($sp)			# Pop the collide flag from stack
 	addi $sp, $sp, 4
-	beq $t0, No, Return
+	beq $t0, No, PopReturn
 	sw $t0, PotionCollided		# It collide
 	lw $t1, Value
 	addi $t1, $t1, 1
@@ -167,13 +226,9 @@ PotionCollideHapp:
 	lw $t1, MovingSpeed
 	addi $t1, $t1, PotionEffect
 	sw $t1, MovingSpeed
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
 	jal ClearValue
 	jal ClearPotion
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
-	jr $ra
+	j PopReturn
 
 CheckHitMushroom:			# Check if character overlap mushroom
 	lw $t1, MushroomCollided
@@ -199,15 +254,12 @@ CheckHitMushroom:			# Check if character overlap mushroom
 	addi $sp, $sp, -4
 	sw $t5, 0($sp)			# Push Character size
 	jal CheckInterval
-	jal MushCollideHapp
-	lw $ra, 0($sp)			# Take back correct ra
-	addi $sp, $sp, 4
-	jr $ra
-
+	j MushCollideHapp
+	
 MushCollideHapp:
 	lw $t0, 0($sp)			# Pop the collide flag from stack
 	addi $sp, $sp, 4
-	beq $t0, No, Return		
+	beq $t0, No, PopReturn		
 	sw $t0, MushroomCollided	# It Collide
 	lw $t1, Value
 	addi $t1, $t1, 1
@@ -215,10 +267,11 @@ MushCollideHapp:
 	lw $t1, CharacterColor
 	addi $t1, $t1, 1
 	sw $t1, CharacterColor
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
 	jal ClearValue
-	jal ClearYellowMushroom
+	jal ClearMushroom
+	j PopReturn
+
+PopReturn:				# Pop ra from stack and return
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
 	jr $ra
@@ -252,11 +305,11 @@ CheckHighestx2:
 	j NotCollided
 	
 Collided:
-	li $t0, 1
+	li $t0, Yes
 	j PushStack
 
 NotCollided:
-	add $t0, $zero, $zero
+	li $t0, No
 	j PushStack
 	
 PushStack:
@@ -322,10 +375,10 @@ MoveLeft:				# Move left if not on leftmost
 	lw $t1, 0($t0)
 	lw $t2, MovingSpeed
 	sub $t1, $t1, $t2
-	bgt $t1, 0, Left
+	bgt $t1, 0, LeftSpeed
 	jr $ra
 
-Left:					# Go left by 1 if greater than 0
+LeftSpeed:					# Go left by 1 if greater than 0
 	lw $t1, 0($t0)
 	lw $t2, MovingSpeed
 	sub $t1, $t1, $t2
@@ -339,10 +392,10 @@ MoveRight:				# Move right if no on rightmost
 	sub $t2, $t2, CharacterWidth	# Get max width including width of character
 	lw $t3, MovingSpeed
 	add $t1, $t1, $t3
-	blt $t1, $t2, Right 
+	blt $t1, $t2, RightSpeed
 	jr $ra
 
-Right:					# Plus 1 if less than Width
+RightSpeed:					# Plus 1 if less than Width
 	lw $t1, 0($t0)
 	lw $t2, MovingSpeed
 	add $t1, $t1, $t2
@@ -413,6 +466,8 @@ InitialMushroom:
 	sw $t1, 0($t0)
 	li $t1, Mushroomy
 	sw $t1, 4($t0)
+	li $t1, MushroomDirection
+	sw $t1, 8($t0)
 	li $t1, No
 	sw $t1, MushroomCollided
 	jr $ra
@@ -423,6 +478,8 @@ InitialPotion:
 	sw $t1, 0($t0)
 	li $t1, Potiony
 	sw $t1, 4($t0)
+	li $t1, PotionDirection
+	sw $t1, 8($t0)
 	li $t1, No
 	sw $t1, PotionCollided
 	jr $ra
@@ -504,7 +561,7 @@ ClearPotion:
 	add $t2, $zero, $zero
 	j CreatePotion
 
-ClearYellowMushroom:
+ClearMushroom:
 	add $t1, $zero, $zero
 	add $t2, $zero, $zero
 	j CreateMushroom
@@ -688,7 +745,7 @@ Display2:
 	
 DisplayCharacter:		# Check to display original or yellow character
 	lw $t0, CharacterColor
-	bne $t0, CharacterOri, YellowCharacter
+	bne $t0, CharacterOri, TransformCharacter
 	j OriginalCharacter
 	
 OriginalCharacter:		# Display Original Character
@@ -697,9 +754,9 @@ OriginalCharacter:		# Display Original Character
 
 	j CreateCharacter
 
-YellowCharacter:		# Display Yellow Character
-	li $t1, Yellow 
-	li $t2, Red 
+TransformCharacter:		# Display Yellow Character
+	li $t1, TransformBody 
+	li $t2, TransformEye
 
 	j CreateCharacter
 
@@ -752,18 +809,17 @@ CreateExitDoor:			# Display Door
 	sw $t2, -1776($t0)
 	jr $ra
 
-YellowMushroom:
+ColorMushroom:
 	lw $t0, MushroomCollided
 	bne $t0, No, Return
-	li $t2, Yellow
-	li $t1, Red
+	li $t2, MushroomColor
 	j CreateMushroom
 
-BluePotion:
+ColorPotion:
 	lw $t0, PotionCollided
 	bne $t0, No, Return
-	li $t2, White
-	li $t1, Blue
+	li $t2, PotionGlassColor
+	li $t1, PotionColor
 	j CreatePotion
 	
 CreatePlatform1:
