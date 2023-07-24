@@ -7,6 +7,8 @@ CheckHitMushroom
 CheckHitPotion
 MoveMushroom
 MovePotion
+FailCondition
+WinCondition
 ##### Initial Position #####
 InitialCharacter
 InitialMushroom
@@ -45,8 +47,9 @@ ChangeRightDir
 PotionRight
 ChangeLeftDir
 MushroomLeft
-
+CalculateDoor
 PotionCollideHapp
+
 ##### Show Object #####
 CreatePlatform1
 CreatePlatform2
@@ -70,9 +73,11 @@ TransformCharacter
     CreateCharacter
 
 
-
+Lose
 Win
 ClickRestart
+DoorCollideHapp
+DisplayScoreHelp
 ##### Show Character #####
 DisplayA
 DisplayC
@@ -106,7 +111,7 @@ FetchInput
 	Jump
         Fly
     Up1
-        
+WaitForRestart
 ##### Finish #####
 PopReturn
 Return

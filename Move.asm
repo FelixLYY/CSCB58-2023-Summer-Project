@@ -8,11 +8,12 @@
 # Figure 2: The MARS Bitmap Display
 # - Base Address for Display: 0x10008000 ($gp)
 .eqv BASE_ADDRESS 0x10008000
-.eqv You_Lose	0x10008080
-.eqv You_Win	0x10008080
-.eqv Press	0x10008708
-.eqv To		0x10008a30
-.eqv Restart	0x10008cf8
+.eqv WinningScore 0x10009540
+.eqv WinningMark  0x100095c4
+.eqv You_Lose	0x10008828
+.eqv You_Win	0x10008828
+.eqv Press	0x1000a020
+.eqv Restart	0x1000b040
 .eqv Platform1 	0x1000a304
 .eqv Platform2 	0x10009d50
 .eqv Platform3 	0x1000a880
@@ -23,7 +24,7 @@
 .eqv Character 	0x1000a210
 .eqv Mushroom	0x10009c60
 .eqv Potion	0x1000b144
-.eqv ExitDoor	0x1000a1d0
+# .eqv ExitDoor	0x1000a1d0
 .eqv Score	0x10008210
 .eqv Keystroke	0xffff0000
 .eqv Mark	0x10008294
@@ -34,6 +35,7 @@
 .eqv Yes		1
 .eqv Left 		0
 .eqv Right 		1
+
 # Define Initial 
 .eqv Characterx		4
 .eqv Charactery		34
@@ -41,8 +43,15 @@
 .eqv Mushroomy		28
 .eqv Potionx		17
 .eqv Potiony		49
+.eqv Doorx		54
+.eqv Doory		33
 .eqv Initialvalue	0
 .eqv PlatformColor	Green
+.eqv LoseColor		Green
+.eqv WinColor		Green
+.eqv RestartColor	Green
+.eqv ScoreColor		White
+
 # Character Attribute
 .eqv CharacterOri	0
 .eqv CharacterWidth	5
@@ -68,10 +77,13 @@
 .eqv PotionDirection	Left
 .eqv PotionColor	Blue
 .eqv PotionGlassColor 	White
-
+.eqv DoorColor		Brown
+.eqv HandleColor	White
+.eqv DoorRadius		1
 
 # Sleep time (Refresh rate)
-.eqv Sleep		40
+.eqv Sleep		60
+
 # Color
 .eqv Red	0xff0000
 .eqv Green	0x00ff00
@@ -90,6 +102,7 @@ Value: 			.word	InitialValue
 Characterxy: 		.word 	Characterx, Charactery
 Mushroomxy: 		.word 	Mushroomx, Mushroomy, MushroomDirection
 Potionxy:		.word	Potionx, Potiony, PotionDirection
+Doorxy:			.word	Doorx, Doory
 CharacterColor:	 	.word	CharacterOri
 RemainJumpDist:	 	.word	0
 CharacterPivot:	 	.word	264
@@ -97,6 +110,7 @@ MovingSpeed:		.word	OriMovingSpeed
 CharacterHeadPivot:	.word	-1532
 MushroomCollided:	.word	No
 PotionCollided:		.word 	No
+
 
 .text
 .globl Initialize
@@ -107,6 +121,7 @@ Initialize:				# Initialize all the value to default
 	jal InitialMushroom
 	jal InitialPotion
 	jal InitialValue
+	jal CalculateDoor
 	j main
 
 main:
@@ -130,6 +145,9 @@ main:
 	jal DisplayCharacter
 	
 	jal Hibernate
+	
+	jal FailCondition
+	jal WinCondition
 
 	jal ClearCharacter
 	jal ClearPotion
@@ -141,8 +159,295 @@ main:
 	jal CheckJump
 	jal CheckHitMushroom
 	jal CheckHitPotion
+
 	j main
-	j End
+
+WinCondition:				# Check collision with door
+	la $t0, Doorxy
+	la $t1, Characterxy
+	lw $t2, 4($t0)
+	lw $t3, 4($t1)
+	bne $t2, $t3, Return		# Check if it is on same horizontal level
+	lw $t2, 0($t0)			
+	addi $t3, $t2, DoorRadius
+	subi $t2, $t2, DoorRadius	# interval of Door size 
+	lw $t4, 0($t1)
+	addi $t5, $t4, CharacterWidth	# interval of Character size
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	addi $sp, $sp, -4
+	sw $t2, 0($sp)
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)			# Push Door size
+	addi $sp, $sp, -4
+	sw $t4, 0($sp)
+	addi $sp, $sp, -4
+	sw $t5, 0($sp)			# Push Character size
+	jal CheckInterval
+	j DoorCollideHapp
+	
+DoorCollideHapp:
+	lw $t0, 0($sp)			# Pop the collide flag from stack
+	addi $sp, $sp, 4
+	beq $t0, No, PopReturn		
+	# It collide
+	jal ClearScreen
+	j Win
+
+Win:					# Display Win Page
+	la $t0, You_Win
+	li $t2, WinColor
+	jal DisplayY			# Display "You Win"
+	addi $t0, $t0, 28
+	jal DisplayO
+	addi $t0, $t0, 20
+	jal DisplayU
+	addi $t0, $t0, 56
+	jal DisplayW
+	addi $t0, $t0, 32
+	jal DisplayI
+	addi $t0, $t0, 24
+	jal DisplayN
+
+	li $t2, ScoreColor
+	li $t0, WinningScore
+	li $t1, WinningMark
+	addi $sp, $sp, -4	# Push Score
+	sw $t0, 0($sp)
+	addi $sp, $sp, -4	# Push Mark
+	sw $t1, 0($sp)
+	addi $sp, $sp, -4	# Push ScoreColor
+	sw $t2, 0($sp)
+	jal DisplayScoreHelp
+	j ClickRestart
+
+
+DisplayW:
+	sw $t2, 0($t0)		# Display W
+	sw $t2, 256($t0)
+	sw $t2, 512($t0)
+	sw $t2, 768($t0)
+	sw $t2, 1024($t0)
+	sw $t2, 1284($t0)
+	sw $t2, 1288($t0)
+	sw $t2, 12($t0)		
+	sw $t2, 268($t0)
+	sw $t2, 524($t0)
+	sw $t2, 780($t0)
+	sw $t2, 1036($t0)
+	sw $t2, 1296($t0)
+	sw $t2, 1300($t0)
+	sw $t2, 24($t0)
+	sw $t2, 280($t0)
+	sw $t2, 536($t0)
+	sw $t2, 792($t0)
+	sw $t2, 1048($t0)
+	jr $ra
+
+DisplayI:
+	sw $t2, 0($t0)		# Display I
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 264($t0)
+	sw $t2, 520($t0)
+	sw $t2, 776($t0)
+	sw $t2, 1032($t0)
+	sw $t2, 1288($t0)
+	sw $t2, 1284($t0)
+	sw $t2, 1280($t0)
+	sw $t2, 1292($t0)
+	sw $t2, 1296($t0)
+	jr $ra
+
+DisplayN:
+	sw $t2, 0($t0)			# Display N
+	sw $t2, 256($t0)
+	sw $t2, 512($t0)
+	sw $t2, 768($t0)
+	sw $t2, 1024($t0)
+	sw $t2, 1280($t0)
+	sw $t2, 20($t0)			
+	sw $t2, 276($t0)
+	sw $t2, 532($t0)
+	sw $t2, 788($t0)
+	sw $t2, 1044($t0)
+	sw $t2, 1300($t0)
+	sw $t2, 260($t0)
+	sw $t2, 520($t0)
+	sw $t2, 780($t0)
+	sw $t2, 1040($t0)
+
+	jr $ra
+	
+CalculateDoor:
+	la $t0, Doorxy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s3, $v0
+	jr $ra
+
+FailCondition:
+	la $t0, Characterxy
+	lw $t1, 4($t0)			# Get y coordinate of Character
+	beq $t1, Height, Lose		# You Lose
+	j Return			# Did not lose
+
+Lose:
+	jal ClearScreen
+	li $t0, You_Lose 
+	li $t2, LoseColor 
+
+	jal DisplayY
+	addi $t0, $t0, 28
+	jal DisplayO
+	addi $t0, $t0, 20
+	jal DisplayU
+	addi $t0, $t0, 56
+	jal DisplayL
+	addi $t0, $t0, 24
+	jal DisplayO
+	addi $t0, $t0, 24
+	jal DisplayS
+	addi $t0, $t0, 16
+	jal DisplayE
+	j ClickRestart
+
+ClickRestart:
+	li $t0, Press
+	li $t2, RestartColor
+	jal DisplayP			# Display "PRESS"
+	addi $t0, $t0, 20
+	jal DisplayR
+	addi $t0, $t0, 20
+	jal DisplayE
+	addi $t0, $t0, 20
+	jal DisplayS
+	addi $t0, $t0, 16
+	jal DisplayS
+	addi $t0, $t0, 36
+	jal DisplayP			# Display "P"
+	addi $t0, $t0, 36
+	jal DisplayT			# Display "TO"
+	addi $t0, $t0, 24
+	jal DisplayO
+	li $t0, Restart			# Display "RESTART"
+	jal DisplayR
+	addi $t0, $t0, 20
+	jal DisplayE
+	addi $t0, $t0, 20
+	jal DisplayS
+	addi $t0, $t0, 16
+	jal DisplayT
+	addi $t0, $t0, 24
+	jal DisplayA
+	addi $t0, $t0, 20
+	jal DisplayR
+	addi $t0, $t0, 20
+	jal DisplayT
+	j WaitForRestart
+
+WaitForRestart:
+	jal FetchInput
+	j WaitForRestart
+
+DisplayT:
+	sw $t2, 0($t0)		# Display T
+	sw $t2, 4($t0)
+	sw $t2, 8($t0)
+	sw $t2, 12($t0)
+	sw $t2, 16($t0)
+	sw $t2, 264($t0)
+	sw $t2, 520($t0)
+	sw $t2, 776($t0)
+	sw $t2, 1032($t0)
+	sw $t2, 1288($t0)
+	jr $ra
+	
+DisplayA:
+	sw $t2, 4($t0)		# Display A
+	sw $t2, 8($t0)	
+	sw $t2, 256($t0)
+	sw $t2, 268($t0)		
+	sw $t2, 512($t0)
+	sw $t2, 524($t0)
+	sw $t2, 516($t0)
+	sw $t2, 520($t0)		
+	sw $t2, 768($t0)
+	sw $t2, 780($t0)		
+	sw $t2, 1024($t0)	
+	sw $t2, 1036($t0)		
+	sw $t2, 1280($t0)
+	sw $t2, 1292($t0)			
+	jr $ra
+
+DisplayP:
+	sw $t2, 0($t0)		# Display P
+	sw $t2, 4($t0)	
+	sw $t2, 8($t0)	
+	sw $t2, 516($t0)	
+	sw $t2, 520($t0)	
+	sw $t2, 256($t0)
+	sw $t2, 268($t0)	
+	sw $t2, 512($t0)
+	sw $t2, 768($t0)		
+	sw $t2, 1024($t0)
+	sw $t2, 1280($t0)	
+	jr $ra		
+
+
+DisplayL:
+	sw $t2, 0($t0)		# Display L
+	sw $t2, 256($t0)
+	sw $t2, 512($t0)
+	sw $t2, 768($t0)
+	sw $t2, 1024($t0)
+	sw $t2, 1280($t0)
+	sw $t2, 1284($t0)
+	sw $t2, 1288($t0)
+	sw $t2, 1292($t0)
+	sw $t2, 1296($t0)
+
+	jr $ra
+	
+
+DisplayU:
+	sw $t2, 4($t0)		# Display U
+	sw $t2, 260($t0)
+	sw $t2, 516($t0)
+	sw $t2, 772($t0)
+	sw $t2, 1032($t0)
+	sw $t2, 1292($t0)
+	sw $t2, 1296($t0)
+	sw $t2, 1300($t0)
+	sw $t2, 1048($t0)
+	sw $t2, 796($t0)
+	sw $t2, 540($t0)
+	sw $t2, 284($t0)
+	sw $t2, 28($t0)
+	jr $ra
+	
+
+DisplayY:
+	sw $t2, 0($t0)		# Display Y
+	sw $t2, 4($t0)
+	sw $t2, 260($t0)
+	sw $t2, 264($t0)
+	sw $t2, 520($t0)
+	sw $t2, 524($t0)
+	sw $t2, 528($t0)
+	sw $t2, 272($t0)
+	sw $t2, 276($t0)
+	sw $t2, 20($t0)
+	sw $t2, 24($t0)
+	sw $t2, 780($t0)
+	sw $t2, 1036($t0)
+	sw $t2, 1292($t0)
+	jr $ra
 
 MoveMushroom:
 	la $t0, Mushroomxy
@@ -496,7 +801,7 @@ CalculatePotionPos:			# Calculate the position of the Potion, Base_Address + (x+
 	jal Calculate
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
-	move $s2, $t0
+	move $s2, $v0
 	jr $ra
 
 CalculateMushroomPos:			# Calculate the position of the Mushroom, Base_Address + (x+y*64)*4
@@ -506,7 +811,7 @@ CalculateMushroomPos:			# Calculate the position of the Mushroom, Base_Address +
 	jal Calculate
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
-	move $s1, $t0
+	move $s1, $v0
 	jr $ra
 
 CalculateCharacterPos:			# Calculate the position of the character, Base_Address + (x+y*64)*4
@@ -516,10 +821,10 @@ CalculateCharacterPos:			# Calculate the position of the character, Base_Address
 	jal Calculate
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
-	move $s0, $t0
+	move $s0, $v0
 	jr $ra
 	
-Calculate:				# Calculate based on t0 = xy of thing
+Calculate:				# Calculate based on t0 = xy of thing, result is on $t0
 	lw $t1, 0($t0)			# x
 	lw $t2, 4($t0)			# y
 	li $t3, Width
@@ -530,7 +835,7 @@ Calculate:				# Calculate based on t0 = xy of thing
 	mult $t1, $t0
 	mflo $t0
 	addi $t0, $t0, BASE_ADDRESS
-
+	move $v0, $t0
 	jr $ra
 	
 
@@ -573,11 +878,27 @@ ClearCharacter:
 	j CreateCharacter
 
 DisplayScore:			# Display Score
+	li $t2, ScoreColor
+	li $t0, Score
+	li $t1, Mark
+	addi $sp, $sp, -4	# Push Score
+	sw $t0, 0($sp)
+	addi $sp, $sp, -4	# Push Mark
+	sw $t1, 0($sp)
+	addi $sp, $sp, -4	# Push ScoreColor
+	sw $t2, 0($sp)
+	j DisplayScoreHelp
+
+DisplayScoreHelp:
+	lw $t2, 0($sp)		# Pop ScoreColor
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)		# Pop Mark
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)		# Pop Score
+	addi $sp, $sp, 4
+
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
-	
-	li $t2, White
-	li $t0, Score
 	
 	jal DisplayS
 	addi $t0, $t0, 12
@@ -590,8 +911,7 @@ DisplayScore:			# Display Score
 	jal DisplayE
 	addi $t0, $t0, 24
 	jal DisplayColon
-	
-	li $t0, Mark
+	move $t0, $t1
 	jal DisplayValue
 	
 	lw $ra, 0($sp)
@@ -689,9 +1009,8 @@ DisplayColon:			# Display :
 
 DisplayValue:
 	lw $t3, Value 
-	li $t4, 1
-	beqz $t3, Display0	# Score = 0
-	beq $t3, $t4, Display1	# Score = 1
+	beq $t3, 0, Display0	# Score = 0
+	beq $t3, 1, Display1	# Score = 1
 	j Display2		# Score = 2
 	
 Display0:
@@ -761,52 +1080,52 @@ TransformCharacter:		# Display Yellow Character
 	j CreateCharacter
 
 Exit:				# Display Exit Door
-	li $t0, ExitDoor
-	li $t1, White
-	li $t2, Brown
+	move $t0, $s3
+	li $t1, HandleColor
+	li $t2, DoorColor
 	j CreateExitDoor
 
 CreateExitDoor:			# Display Door
+	sw $t2, -8($t0)
+	sw $t2, -4($t0)
 	sw $t2, 0($t0)
 	sw $t2, 4($t0)
 	sw $t2, 8($t0)
-	sw $t2, 12($t0)
-	sw $t2, 16($t0)
+	sw $t2, -264($t0)
+	sw $t2, -260($t0)
 	sw $t2, -256($t0)
 	sw $t2, -252($t0)
 	sw $t2, -248($t0)
-	sw $t2, -244($t0)
-	sw $t2, -240($t0)
+	sw $t2, -520($t0)
+	sw $t2, -516($t0)
 	sw $t2, -512($t0)
-	sw $t2, -508($t0)
+	sw $t1 -508($t0)
 	sw $t2, -504($t0)
-	sw $t1 -500($t0)
-	sw $t2, -496($t0)
+	sw $t2, -776($t0)
+	sw $t2, -772($t0)
 	sw $t2, -768($t0)
 	sw $t2, -764($t0)
 	sw $t2, -760($t0)
-	sw $t2, -756($t0)
-	sw $t2, -752($t0)
+	sw $t2, -1032($t0)
+	sw $t2, -1028($t0)
 	sw $t2, -1024($t0)
 	sw $t2, -1020($t0)
 	sw $t2, -1016($t0)
-	sw $t2, -1012($t0)
-	sw $t2, -1008($t0)
+	sw $t2, -1288($t0)
+	sw $t2, -1284($t0)
 	sw $t2, -1280($t0)
 	sw $t2, -1276($t0)
 	sw $t2, -1272($t0)
-	sw $t2, -1268($t0)
-	sw $t2, -1264($t0)
+	sw $t2, -1544($t0)
+	sw $t2, -1540($t0)
 	sw $t2, -1536($t0)
 	sw $t2, -1532($t0)
 	sw $t2, -1528($t0)
-	sw $t2, -1524($t0)
-	sw $t2, -1520($t0)
+	sw $t2, -1800($t0)
+	sw $t2, -1796($t0)
 	sw $t2, -1792($t0)
 	sw $t2, -1788($t0)
 	sw $t2, -1784($t0)
-	sw $t2, -1780($t0)
-	sw $t2, -1776($t0)
 	jr $ra
 
 ColorMushroom:
