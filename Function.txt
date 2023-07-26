@@ -14,6 +14,9 @@ InitialCharacter
 InitialMushroom
 InitialPotion
 InitialValue
+InitialPlatform2
+InitialPlatform3
+InitialPlatform4
 
 ##### Clear #####
 ClearScreen
@@ -22,7 +25,9 @@ ClearCharacter
 ClearYellowMushroom
 ClearPotion
 ClearValue
-
+ClearPlatform2
+ClearPlatform3
+ClearPlatform4
 	
 ##### Calculate #####
 CalculateCharacterPos
@@ -49,7 +54,12 @@ ChangeLeftDir
 MushroomLeft
 CalculateDoor
 PotionCollideHapp
-
+CalculatePlatform2Pos
+CalculatePlatform3Pos
+CalculatePlatform4Pos
+MovePlatform2
+MovePlatform3
+MovePlatform5
 ##### Show Object #####
 CreatePlatform1
 CreatePlatform2

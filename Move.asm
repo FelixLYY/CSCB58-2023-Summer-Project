@@ -51,6 +51,12 @@
 .eqv WinColor		Green
 .eqv RestartColor	Green
 .eqv ScoreColor		White
+.eqv Platform2x		20
+.eqv Platform2y		29
+.eqv Platform3x		32
+.eqv Platform3y		40
+.eqv Platform5x		13
+.eqv Platform5y		50
 
 # Character Attribute
 .eqv CharacterOri	0
@@ -69,7 +75,7 @@
 # Object Attribute
 .eqv MushroomRadius	1
 .eqv MushroomMovDist	3
-.eqv MushroomDirection	Left
+.eqv MushroomDirection	Right
 .eqv MushroomColor	Yellow
 .eqv PotionRadius	1
 .eqv PotionEffect	2
@@ -80,7 +86,12 @@
 .eqv DoorColor		Brown
 .eqv HandleColor	White
 .eqv DoorRadius		1
-
+.eqv Platform2Direction Left
+.eqv Platform2MovDist	2
+.eqv Platform3Direction Left
+.eqv Platform3MovDist	8
+.eqv Platform5Direction Left
+.eqv Platform5MovDist	4
 # Sleep time (Refresh rate)
 .eqv Sleep		60
 
@@ -99,10 +110,13 @@
 
 .data 
 Value: 			.word	InitialValue
-Characterxy: 		.word 	Characterx, Charactery
-Mushroomxy: 		.word 	Mushroomx, Mushroomy, MushroomDirection
-Potionxy:		.word	Potionx, Potiony, PotionDirection
-Doorxy:			.word	Doorx, Doory
+Characterxy: 		.word 	Characterx, Charactery				# s0
+Mushroomxy: 		.word 	Mushroomx, Mushroomy, MushroomDirection	# s1
+Potionxy:		.word	Potionx, Potiony, PotionDirection		# s2
+Doorxy:			.word	Doorx, Doory					# s3
+Platform2xy:		.word	Platform2x, Platform2y, Platform2Direction	# s4
+Platform3xy:		.word	Platform3x, Platform3y, Platform3Direction	# s5
+Platform5xy:		.word	Platform5x, Platform5y, Platform5Direction	# s6
 CharacterColor:	 	.word	CharacterOri
 RemainJumpDist:	 	.word	0
 CharacterPivot:	 	.word	264
@@ -121,6 +135,9 @@ Initialize:				# Initialize all the value to default
 	jal InitialMushroom
 	jal InitialPotion
 	jal InitialValue
+	jal InitialPlatform2
+	jal InitialPlatform3
+	jal InitialPlatform5
 	jal CalculateDoor
 	j main
 
@@ -129,7 +146,9 @@ main:
 	jal CalculateCharacterPos
 	jal CalculateMushroomPos
 	jal CalculatePotionPos
-
+	jal CalculatePlatform2Pos
+	jal CalculatePlatform3Pos
+	jal CalculatePlatform5Pos
 	# Display 
 	jal CreatePlatform1
 	jal CreatePlatform2
@@ -149,17 +168,24 @@ main:
 	jal FailCondition
 	jal WinCondition
 
-	jal ClearCharacter
-	jal ClearPotion
-	jal ClearMushroom
+
 	jal FetchInput
 	jal Gravity
 	jal MovePotion
 	jal MoveMushroom
+	jal MovePlatform2
+	jal MovePlatform3
+	jal MovePlatform5
 	jal CheckJump
 	jal CheckHitMushroom
 	jal CheckHitPotion
-
+	
+	jal ClearCharacter
+	jal ClearPotion
+	jal ClearMushroom
+	jal ClearPlatform2
+	jal ClearPlatform3
+	jal ClearPlatform5
 	j main
 
 WinCondition:				# Check collision with door
@@ -282,7 +308,7 @@ DisplayN:
 	jr $ra
 	
 CalculateDoor:
-	la $t0, Doorxy
+	la $a0, Doorxy
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal Calculate
@@ -480,6 +506,33 @@ MovePotion:
 	lw $t2, 8($t0)			# Get moving direction
 	li $t4, Potionx
 	li $t5, PotionMovDist
+	beq $t2, Left, CheckLeft	# Go Left if move = left
+	j CheckRight			# Go Right if move = right			
+
+MovePlatform2:
+	la $t0, Platform2xy
+	lw $t1, 0($t0)			# Get x coordinate of Potion
+	lw $t2, 8($t0)			# Get moving direction
+	li $t4, Platform2x
+	li $t5, Platform2MovDist
+	beq $t2, Left, CheckLeft	# Go Left if move = left
+	j CheckRight			# Go Right if move = right			
+
+MovePlatform3:
+	la $t0, Platform3xy
+	lw $t1, 0($t0)			# Get x coordinate of Potion
+	lw $t2, 8($t0)			# Get moving direction
+	li $t4, Platform3x
+	li $t5, Platform3MovDist
+	beq $t2, Left, CheckLeft	# Go Left if move = left
+	j CheckRight			# Go Right if move = right			
+
+MovePlatform5:
+	la $t0, Platform5xy
+	lw $t1, 0($t0)			# Get x coordinate of Potion
+	lw $t2, 8($t0)			# Get moving direction
+	li $t4, Platform5x
+	li $t5, Platform5MovDist
 	beq $t2, Left, CheckLeft	# Go Left if move = left
 	j CheckRight			# Go Right if move = right			
 
@@ -731,6 +784,36 @@ Hibernate:				# Sleep by a given time
 	syscall
 	jr $ra
 
+InitialPlatform2:
+	la $t0, Platform2xy
+	li $t1, Platform2x
+	sw $t1, 0($t0)
+	li $t1, Platform2y
+	sw $t1, 4($t0)
+	li $t1, Platform2Direction
+	sw $t1, 8($t0)
+	jr $ra
+	
+InitialPlatform3:
+	la $t0, Platform3xy
+	li $t1, Platform3x
+	sw $t1, 0($t0)
+	li $t1, Platform3y
+	sw $t1, 4($t0)
+	li $t1, Platform3Direction
+	sw $t1, 8($t0)
+	jr $ra
+	
+InitialPlatform5:
+	la $t0, Platform5xy
+	li $t1, Platform5x
+	sw $t1, 0($t0)
+	li $t1, Platform5y
+	sw $t1, 4($t0)
+	li $t1, Platform5Direction
+	sw $t1, 8($t0)
+	jr $ra
+	
 InitialCharacter:
 	la $t0, Characterxy
 	li $t1, Characterx
@@ -795,7 +878,7 @@ InitialValue:
 	jr $ra
 
 CalculatePotionPos:			# Calculate the position of the Potion, Base_Address + (x+y*64)*4
-	la $t0, Potionxy
+	la $a0, Potionxy
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal Calculate
@@ -804,8 +887,38 @@ CalculatePotionPos:			# Calculate the position of the Potion, Base_Address + (x+
 	move $s2, $v0
 	jr $ra
 
+CalculatePlatform2Pos:
+	la $a0, Platform2xy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s4, $v0
+	jr $ra
+
+CalculatePlatform3Pos:
+	la $a0, Platform3xy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s5, $v0
+	jr $ra
+
+CalculatePlatform5Pos:
+	la $a0, Platform5xy
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal Calculate
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	move $s6, $v0
+	jr $ra
+	
 CalculateMushroomPos:			# Calculate the position of the Mushroom, Base_Address + (x+y*64)*4
-	la $t0, Mushroomxy
+	la $a0, Mushroomxy
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal Calculate
@@ -815,7 +928,7 @@ CalculateMushroomPos:			# Calculate the position of the Mushroom, Base_Address +
 	jr $ra
 
 CalculateCharacterPos:			# Calculate the position of the character, Base_Address + (x+y*64)*4
-	la $t0, Characterxy		# Only this function can modify $s0
+	la $a0, Characterxy		# Only this function can modify $s0
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal Calculate
@@ -825,6 +938,7 @@ CalculateCharacterPos:			# Calculate the position of the character, Base_Address
 	jr $ra
 	
 Calculate:				# Calculate based on t0 = xy of thing, result is on $t0
+	move $t0, $a0
 	lw $t1, 0($t0)			# x
 	lw $t2, 4($t0)			# y
 	li $t3, Width
@@ -871,6 +985,21 @@ ClearMushroom:
 	add $t2, $zero, $zero
 	j CreateMushroom
 
+ClearPlatform2:
+	move $t0, $s4
+	add $t2, $zero, $zero
+	j InitPlat
+	
+ClearPlatform3:
+	move $t0, $s5
+	add $t2, $zero, $zero
+	j InitPlat
+	
+ClearPlatform5:
+	move $t0, $s6
+	add $t2, $zero, $zero
+	j InitPlat
+	
 ClearCharacter:
 	add $t1, $zero, $zero
 	add $t2, $zero, $zero
@@ -1149,13 +1278,13 @@ CreatePlatform1:
 
 	
 CreatePlatform2:
-	li $t0, Platform2
+	move $t0, $s4
 	li $t2, PlatformColor
 
 	j InitPlat
 
 CreatePlatform3:
-	li $t0, Platform3
+	move $t0, $s5
 	li $t2, PlatformColor
 
 	j InitPlat
@@ -1168,7 +1297,7 @@ CreatePlatform4:
 
 
 CreatePlatform5:
-	li $t0, Platform5
+	move $t0, $s6
 	li $t2, PlatformColor
 
 	j InitPlat
@@ -1184,7 +1313,7 @@ InitPlat:
 	sw $t2, 20($t0)
 	sw $t2, 24($t0)
 	sw $t2, 28($t0)
-	sw  $t2, 32($t0)
+	sw $t2, 32($t0)
 	sw $t2, 36($t0)
 	sw $t2, 40($t0)	
 	jr $ra
